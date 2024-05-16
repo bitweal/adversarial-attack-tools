@@ -8,7 +8,7 @@ The purpose of this repository is to provide a platform for experimenting with a
 
 ## Features
 
-- **Adversarial Attack Implementation**: The repository implements the Basic Iterative Method (BIM) for generating adversarial examples. 
+- **Adversarial Attack Implementation**: The repository implements the Basic Iterative Method (GSM) for generating adversarial examples. 
 - **Supported Models**: Pre-trained model MobileNetV2. This model is widely used for image classification tasks and serves as a target for adversarial attacks.
 - **User-Friendly Interface**: The code is structured to be easy to understand and use. It includes functions for loading images, making predictions, and conducting adversarial attacks.
 
@@ -26,9 +26,10 @@ The purpose of this repository is to provide a platform for experimenting with a
 
 ## Repository Structure
 
-- **mobilenet_v2.py**: Contains the definition of the MobileNetV2 model.
-- **inception_v3.py**: Contains the definition of the InceptionV3 model.
-- **adversarial_attack.py**: Implements the AdversarialAttack class for crafting adversarial examples using the BIM method. Entry point of the application. Loads the pre-trained model, performs predictions, and conducts adversarial attacks.
+- **models/**: Directory containing model definitions and pre-trained weights.
+  - **mobilenet_v2.py**: Contains the definition of the MobileNetV2 model.
+  - **inception_v3.py**: Contains the definition of the InceptionV3 model.
+- **adversarial_attack.py**: Implements the AdversarialAttack class for crafting adversarial examples using the GSM (Gradient Sign Method). Entry point of the application. Loads the pre-trained model, performs predictions, and conducts adversarial attacks.
 - **imagenet_classes.txt**: Contains the class labels for the ImageNet dataset.
 - **media/**: Directory to store input images and adversarially perturbed images.
 

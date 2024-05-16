@@ -56,7 +56,7 @@ class AdversarialAttack:
         data_grad = batch.grad.data
         self.data_grad = data_grad
 
-    def bim_attack(self):
+    def gsm_attack(self):
         self.compute_gradient()
         predicted_class = None
         data_grad = copy.deepcopy(self.data_grad)
@@ -67,9 +67,9 @@ class AdversarialAttack:
         for eps in np.arange(0, 0.5, 0.01):
             perturbed_image = self.image_in_tensor + eps * sign_data_grad
             perturbed_image = torch.clamp(perturbed_image, 0, 1)
-            self.save_tensor_image(perturbed_image, f'bim_attack{eps}')
+            self.save_tensor_image(perturbed_image, f'gsm_attack{eps}')
             print(eps)
-            self.load_image(f'media/bim_attack{eps}.jpg')
+            self.load_image(f'media/gsm_attack{eps}.jpg')
 
             if self.predicted_class is None:
                 self.predicted_class = self.predict()
@@ -119,4 +119,4 @@ if __name__ == "__main__":
     attack = AdversarialAttack(model, file_classes)
     attack.load_image(filename)
     attack.predict()
-    attack.bim_attack()
+    attack.gsm_attack()
