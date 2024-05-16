@@ -59,27 +59,31 @@ class AdversarialAttack:
     def bim_attack(self):
         self.compute_gradient()
         predicted_class = None
+        data_grad = copy.deepcopy(self.data_grad)
+        sign_data_grad = data_grad.sign()
+        image = copy.deepcopy(self.image)
+        image_in_tensor = copy.deepcopy(self.image_in_tensor)
+
         for eps in np.arange(0, 0.5, 0.01):
-            data_grad = copy.deepcopy(self.data_grad)
-            sign_data_grad = data_grad.sign()
             perturbed_image = self.image_in_tensor + eps * sign_data_grad
             perturbed_image = torch.clamp(perturbed_image, 0, 1)
             self.save_tensor_image(perturbed_image, f'bim_attack{eps}')
             print(eps)
-            image = self.image
-            image_in_tensor = self.image_in_tensor
             self.load_image(f'media/bim_attack{eps}.jpg')
 
             if self.predicted_class is None:
                 self.predicted_class = self.predict()
             else:
                 predicted_class = self.predict()
-
-            self.image = image
-            self.image_in_tensor = image_in_tensor
+                self.compute_gradient()
+                data_grad = copy.deepcopy(self.data_grad)
+                sign_data_grad = data_grad.sign()
 
             if predicted_class != self.predicted_class:
                 break
+
+        self.image = image
+        self.image_in_tensor = image_in_tensor
 
     def predict(self):
         input_image = self.image
