@@ -1,5 +1,5 @@
-from mobilenet_v2 import mobilenet_v2
-from inception_v3 import inception_v3
+from models.mobilenet_v2 import mobilenet_v2
+from models.inception_v3 import inception_v3
 import torch
 import torch.nn as nn
 from torchvision import transforms
