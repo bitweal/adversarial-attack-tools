@@ -64,7 +64,7 @@ class AdversarialAttack:
                 print(eps)
                 perturbed_image = self.image_in_tensor + eps * sign_data_grad
                 perturbed_image = torch.clamp(perturbed_image, 0, 1)
-                name_new_image = f'{model.__class__.__name__}_gsm_attack_{eps}'
+                name_new_image = f'{model.__class__.__name__}_fgsm_attack_{eps}'
                 self.save_tensor_image(perturbed_image, name_new_image)
                 self.load_image(f'media/{name_new_image}.jpg')
 
@@ -75,6 +75,35 @@ class AdversarialAttack:
                     self.compute_gradient()
                     data_grad = copy.deepcopy(self.data_grad)
                     sign_data_grad = data_grad.sign()
+
+                if predicted_class != self.predicted_class and predicted_class:
+                    break
+
+            self.image = image
+            self.image_in_tensor = image_in_tensor
+        else:
+            raise errors.ImageException('self.image was not loaded, use load_image()')
+
+    def bim_attack(self):
+        if self.image:
+            self.compute_gradient()
+            predicted_class = None
+            image = copy.deepcopy(self.image)
+            image_in_tensor = copy.deepcopy(self.image_in_tensor)
+
+            for eps in np.arange(0, 0.5, 0.01):
+                print(eps)
+                perturbed_image = self.image_in_tensor + eps * self.data_grad
+                perturbed_image = torch.clamp(perturbed_image, 0, 1)
+                name_new_image = f'{model.__class__.__name__}_bim_attack_{eps}'
+                self.save_tensor_image(perturbed_image, name_new_image)
+                self.load_image(f'media/{name_new_image}.jpg')
+
+                if self.predicted_class is None:
+                    self.predicted_class = self.predict()
+                else:
+                    predicted_class = self.predict()
+                    self.compute_gradient()
 
                 if predicted_class != self.predicted_class and predicted_class:
                     break
@@ -111,4 +140,5 @@ if __name__ == "__main__":
     attack = AdversarialAttack(model, file_classes)
     attack.load_image(filename)
     #attack.predict()
-    attack.fgsm_attack()
+    #attack.fgsm_attack()
+    attack.bim_attack()
