@@ -1,5 +1,6 @@
 from models.mobilenet_v2 import mobilenet_v2
 from models.inception_v3 import inception_v3
+import errors
 import torch
 import torch.nn as nn
 from torchvision import transforms
@@ -38,77 +39,97 @@ class AdversarialAttack:
 
     def load_image(self, image_path):
         self.image = Image.open(image_path)
-        self.image_in_tensor = transforms.ToTensor()(self.image).unsqueeze(0)
-
-    def tensor_to_batch(self, input_tensor):
-        self.batch = input_tensor.unsqueeze(0)
-        return self.batch
+        self.image_in_tensor = transforms.ToTensor()(self.image)
+        self.batch = self.image_in_tensor.unsqueeze(0)
 
     def compute_gradient(self):
-        batch = copy.deepcopy(self.batch)
-        model = copy.deepcopy(self.model)
-        batch.requires_grad = True
-        output = model(batch)
+        self.batch.requires_grad = True
+        output = self.model(self.batch)
         predicted_class = output.argmax(dim=1)
         loss = nn.CrossEntropyLoss()(output, predicted_class)
-        model.zero_grad()
+        self.model.zero_grad()
         loss.backward()
-        data_grad = batch.grad.data
+        data_grad = self.batch.grad.data
         self.data_grad = data_grad
 
-    def gsm_attack(self):
-        self.compute_gradient()
-        predicted_class = None
-        data_grad = copy.deepcopy(self.data_grad)
-        sign_data_grad = data_grad.sign()
-        image = copy.deepcopy(self.image)
-        image_in_tensor = copy.deepcopy(self.image_in_tensor)
+    def fgsm_attack(self):
+        if self.image:
+            self.compute_gradient()
+            predicted_class = None
+            sign_data_grad = self.data_grad.sign()
+            image = copy.deepcopy(self.image)
+            image_in_tensor = copy.deepcopy(self.image_in_tensor)
 
-        for eps in np.arange(0, 0.5, 0.01):
-            perturbed_image = self.image_in_tensor + eps * sign_data_grad
-            perturbed_image = torch.clamp(perturbed_image, 0, 1)
-            self.save_tensor_image(perturbed_image, f'gsm_attack{eps}')
-            print(eps)
-            self.load_image(f'media/gsm_attack{eps}.jpg')
+            for eps in np.arange(0, 0.5, 0.01):
+                print(eps)
+                perturbed_image = self.image_in_tensor + eps * sign_data_grad
+                perturbed_image = torch.clamp(perturbed_image, 0, 1)
+                name_new_image = f'{model.__class__.__name__}_fgsm_attack_{eps}'
+                self.save_tensor_image(perturbed_image, name_new_image)
+                self.load_image(f'media/{name_new_image}.jpg')
 
-            if self.predicted_class is None:
-                self.predicted_class = self.predict()
-            else:
-                predicted_class = self.predict()
-                self.compute_gradient()
-                data_grad = copy.deepcopy(self.data_grad)
-                sign_data_grad = data_grad.sign()
+                if self.predicted_class is None:
+                    self.predicted_class = self.predict()
+                else:
+                    predicted_class = self.predict()
+                    self.compute_gradient()
+                    data_grad = copy.deepcopy(self.data_grad)
+                    sign_data_grad = data_grad.sign()
 
-            if predicted_class != self.predicted_class:
-                break
+                if predicted_class != self.predicted_class and predicted_class:
+                    break
 
-        self.image = image
-        self.image_in_tensor = image_in_tensor
+            self.image = image
+            self.image_in_tensor = image_in_tensor
+        else:
+            raise errors.ImageException('self.image was not loaded, use load_image()')
+
+    def bim_attack(self):
+        if self.image:
+            self.compute_gradient()
+            predicted_class = None
+            image = copy.deepcopy(self.image)
+            image_in_tensor = copy.deepcopy(self.image_in_tensor)
+
+            for eps in np.arange(0, 0.5, 0.01):
+                print(eps)
+                perturbed_image = self.image_in_tensor + eps * self.data_grad
+                perturbed_image = torch.clamp(perturbed_image, 0, 1)
+                name_new_image = f'{model.__class__.__name__}_bim_attack_{eps}'
+                self.save_tensor_image(perturbed_image, name_new_image)
+                self.load_image(f'media/{name_new_image}.jpg')
+
+                if self.predicted_class is None:
+                    self.predicted_class = self.predict()
+                else:
+                    predicted_class = self.predict()
+                    self.compute_gradient()
+
+                if predicted_class != self.predicted_class and predicted_class:
+                    break
+
+            self.image = image
+            self.image_in_tensor = image_in_tensor
+        else:
+            raise errors.ImageException('self.image was not loaded, use load_image()')
 
     def predict(self):
-        input_image = self.image
-        preprocess = transforms.Compose([
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-        ])
+        if self.image:
+            with torch.no_grad():
+                output = self.model(self.batch)
 
-        input_tensor = preprocess(input_image)
-        input_batch = self.tensor_to_batch(input_tensor)
-        with torch.no_grad():
-            output = self.model(input_batch)
+            probabilities = torch.nn.functional.softmax(output[0], dim=0)
+            predicted_class_idx = torch.argmax(probabilities).item()
+            predicted_class = self.class_labels[predicted_class_idx]
 
-        probabilities = torch.nn.functional.softmax(output[0], dim=0)
-        predicted_class_idx = torch.argmax(probabilities).item()
-        predicted_class = self.class_labels[predicted_class_idx]
+            print("Predicted class:", predicted_class)
+            print("Probability:", probabilities[predicted_class_idx].item())
 
-        print("Predicted class:", predicted_class)
-        print("Probability:", probabilities[predicted_class_idx].item())
-
-        if self.predicted_class is None:
-            self.predicted_class = predicted_class
-        return predicted_class
+            if self.predicted_class is None:
+                self.predicted_class = predicted_class
+            return predicted_class
+        else:
+            raise errors.ImageException('self.image was not loaded, use load_image()')
 
 
 if __name__ == "__main__":
@@ -118,5 +139,6 @@ if __name__ == "__main__":
     file_classes = 'imagenet_classes.txt'
     attack = AdversarialAttack(model, file_classes)
     attack.load_image(filename)
-    attack.predict()
-    attack.gsm_attack()
+    #attack.predict()
+    #attack.fgsm_attack()
+    attack.bim_attack()
