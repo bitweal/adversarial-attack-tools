@@ -1,5 +1,6 @@
 from models.mobilenet_v2 import mobilenet_v2
 from models.inception_v3 import inception_v3
+import errors
 import torch
 import torch.nn as nn
 from torchvision import transforms
@@ -86,29 +87,32 @@ class AdversarialAttack:
         self.image_in_tensor = image_in_tensor
 
     def predict(self):
-        input_image = self.image
-        preprocess = transforms.Compose([
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-        ])
+        if self.image:
+            input_image = self.image
+            preprocess = transforms.Compose([
+                transforms.Resize(256),
+                transforms.CenterCrop(224),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+            ])
 
-        input_tensor = preprocess(input_image)
-        input_batch = self.tensor_to_batch(input_tensor)
-        with torch.no_grad():
-            output = self.model(input_batch)
+            input_tensor = preprocess(input_image)
+            input_batch = self.tensor_to_batch(input_tensor)
+            with torch.no_grad():
+                output = self.model(input_batch)
 
-        probabilities = torch.nn.functional.softmax(output[0], dim=0)
-        predicted_class_idx = torch.argmax(probabilities).item()
-        predicted_class = self.class_labels[predicted_class_idx]
+            probabilities = torch.nn.functional.softmax(output[0], dim=0)
+            predicted_class_idx = torch.argmax(probabilities).item()
+            predicted_class = self.class_labels[predicted_class_idx]
 
-        print("Predicted class:", predicted_class)
-        print("Probability:", probabilities[predicted_class_idx].item())
+            print("Predicted class:", predicted_class)
+            print("Probability:", probabilities[predicted_class_idx].item())
 
-        if self.predicted_class is None:
-            self.predicted_class = predicted_class
-        return predicted_class
+            if self.predicted_class is None:
+                self.predicted_class = predicted_class
+            return predicted_class
+        else:
+            raise errors.ImageException('self.image was not loaded, use load_image()')
 
 
 if __name__ == "__main__":
