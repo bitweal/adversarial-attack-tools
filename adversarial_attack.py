@@ -39,11 +39,8 @@ class AdversarialAttack:
 
     def load_image(self, image_path):
         self.image = Image.open(image_path)
-        self.image_in_tensor = transforms.ToTensor()(self.image).unsqueeze(0)
-
-    def tensor_to_batch(self, input_tensor):
-        self.batch = input_tensor.unsqueeze(0)
-        return self.batch
+        self.image_in_tensor = transforms.ToTensor()(self.image)
+        self.batch = self.image_in_tensor.unsqueeze(0)
 
     def compute_gradient(self):
         batch = copy.deepcopy(self.batch)
@@ -58,48 +55,41 @@ class AdversarialAttack:
         self.data_grad = data_grad
 
     def gsm_attack(self):
-        self.compute_gradient()
-        predicted_class = None
-        data_grad = copy.deepcopy(self.data_grad)
-        sign_data_grad = data_grad.sign()
-        image = copy.deepcopy(self.image)
-        image_in_tensor = copy.deepcopy(self.image_in_tensor)
+        if self.image:
+            self.compute_gradient()
+            predicted_class = None
+            data_grad = copy.deepcopy(self.data_grad)
+            sign_data_grad = data_grad.sign()
+            image = copy.deepcopy(self.image)
+            image_in_tensor = copy.deepcopy(self.image_in_tensor)
 
-        for eps in np.arange(0, 0.5, 0.01):
-            perturbed_image = self.image_in_tensor + eps * sign_data_grad
-            perturbed_image = torch.clamp(perturbed_image, 0, 1)
-            self.save_tensor_image(perturbed_image, f'gsm_attack{eps}')
-            print(eps)
-            self.load_image(f'media/gsm_attack{eps}.jpg')
+            for eps in np.arange(0, 0.5, 0.01):
+                perturbed_image = self.image_in_tensor + eps * sign_data_grad
+                perturbed_image = torch.clamp(perturbed_image, 0, 1)
+                self.save_tensor_image(perturbed_image, f'gsm_attack{eps}')
+                print(eps)
+                self.load_image(f'media/gsm_attack{eps}.jpg')
 
-            if self.predicted_class is None:
-                self.predicted_class = self.predict()
-            else:
-                predicted_class = self.predict()
-                self.compute_gradient()
-                data_grad = copy.deepcopy(self.data_grad)
-                sign_data_grad = data_grad.sign()
+                if self.predicted_class is None:
+                    self.predicted_class = self.predict()
+                else:
+                    predicted_class = self.predict()
+                    self.compute_gradient()
+                    data_grad = copy.deepcopy(self.data_grad)
+                    sign_data_grad = data_grad.sign()
 
-            if predicted_class != self.predicted_class:
-                break
+                if predicted_class != self.predicted_class and predicted_class:
+                    break
 
-        self.image = image
-        self.image_in_tensor = image_in_tensor
+            self.image = image
+            self.image_in_tensor = image_in_tensor
+        else:
+            raise errors.ImageException('self.image was not loaded, use load_image()')
 
     def predict(self):
         if self.image:
-            input_image = self.image
-            preprocess = transforms.Compose([
-                transforms.Resize(256),
-                transforms.CenterCrop(224),
-                transforms.ToTensor(),
-                transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-            ])
-
-            input_tensor = preprocess(input_image)
-            input_batch = self.tensor_to_batch(input_tensor)
             with torch.no_grad():
-                output = self.model(input_batch)
+                output = self.model(self.batch)
 
             probabilities = torch.nn.functional.softmax(output[0], dim=0)
             predicted_class_idx = torch.argmax(probabilities).item()
