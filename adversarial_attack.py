@@ -43,32 +43,30 @@ class AdversarialAttack:
         self.batch = self.image_in_tensor.unsqueeze(0)
 
     def compute_gradient(self):
-        batch = copy.deepcopy(self.batch)
-        model = copy.deepcopy(self.model)
-        batch.requires_grad = True
-        output = model(batch)
+        self.batch.requires_grad = True
+        output = self.model(self.batch)
         predicted_class = output.argmax(dim=1)
         loss = nn.CrossEntropyLoss()(output, predicted_class)
-        model.zero_grad()
+        self.model.zero_grad()
         loss.backward()
-        data_grad = batch.grad.data
+        data_grad = self.batch.grad.data
         self.data_grad = data_grad
 
-    def gsm_attack(self):
+    def fgsm_attack(self):
         if self.image:
             self.compute_gradient()
             predicted_class = None
-            data_grad = copy.deepcopy(self.data_grad)
-            sign_data_grad = data_grad.sign()
+            sign_data_grad = self.data_grad.sign()
             image = copy.deepcopy(self.image)
             image_in_tensor = copy.deepcopy(self.image_in_tensor)
 
             for eps in np.arange(0, 0.5, 0.01):
+                print(eps)
                 perturbed_image = self.image_in_tensor + eps * sign_data_grad
                 perturbed_image = torch.clamp(perturbed_image, 0, 1)
-                self.save_tensor_image(perturbed_image, f'gsm_attack{eps}')
-                print(eps)
-                self.load_image(f'media/gsm_attack{eps}.jpg')
+                name_new_image = f'{model.__class__.__name__}_gsm_attack_{eps}'
+                self.save_tensor_image(perturbed_image, name_new_image)
+                self.load_image(f'media/{name_new_image}.jpg')
 
                 if self.predicted_class is None:
                     self.predicted_class = self.predict()
@@ -112,5 +110,5 @@ if __name__ == "__main__":
     file_classes = 'imagenet_classes.txt'
     attack = AdversarialAttack(model, file_classes)
     attack.load_image(filename)
-    attack.predict()
-    attack.gsm_attack()
+    #attack.predict()
+    attack.fgsm_attack()
