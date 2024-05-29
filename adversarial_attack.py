@@ -49,69 +49,96 @@ class AdversarialAttack:
         loss = nn.CrossEntropyLoss()(output, predicted_class)
         self.model.zero_grad()
         loss.backward()
-        data_grad = self.batch.grad.data
-        self.data_grad = data_grad
+        self.data_grad = self.batch.grad.data
 
     def fgsm_attack(self):
-        if self.image:
-            self.compute_gradient()
-            predicted_class = None
-            sign_data_grad = self.data_grad.sign()
-            image = copy.deepcopy(self.image)
-            image_in_tensor = copy.deepcopy(self.image_in_tensor)
-
-            for eps in np.arange(0, 0.5, 0.01):
-                print(eps)
-                perturbed_image = self.image_in_tensor + eps * sign_data_grad
-                perturbed_image = torch.clamp(perturbed_image, 0, 1)
-                name_new_image = f'{model.__class__.__name__}_fgsm_attack_{eps}'
-                self.save_tensor_image(perturbed_image, name_new_image)
-                self.load_image(f'media/{name_new_image}.jpg')
-
-                if self.predicted_class is None:
-                    self.predicted_class = self.predict()
-                else:
-                    predicted_class = self.predict()
-                    self.compute_gradient()
-                    data_grad = copy.deepcopy(self.data_grad)
-                    sign_data_grad = data_grad.sign()
-
-                if predicted_class != self.predicted_class and predicted_class:
-                    break
-
-            self.image = image
-            self.image_in_tensor = image_in_tensor
-        else:
+        if self.image is None:
             raise errors.ImageException('self.image was not loaded, use load_image()')
+
+        predicted_class = None
+        image = copy.deepcopy(self.image)
+        image_in_tensor = copy.deepcopy(self.image_in_tensor)
+
+        for eps in np.arange(0.01, 0.5, 0.01):
+            self.compute_gradient()
+            print(eps)
+            perturbed_image = self.image_in_tensor + eps * self.data_grad.sign()
+            perturbed_image = torch.clamp(perturbed_image, 0, 1)
+            name_new_image = f'{model.__class__.__name__}_fgsm_attack_{eps}'
+            self.save_tensor_image(perturbed_image, name_new_image)
+            self.load_image(f'media/{name_new_image}.jpg')
+
+            if self.predicted_class is None:
+                self.predicted_class = self.predict()
+            else:
+                predicted_class = self.predict()
+
+            if predicted_class != self.predicted_class and predicted_class:
+                break
+
+        self.image = image
+        self.image_in_tensor = image_in_tensor
 
     def bim_attack(self):
-        if self.image:
-            self.compute_gradient()
-            predicted_class = None
-            image = copy.deepcopy(self.image)
-            image_in_tensor = copy.deepcopy(self.image_in_tensor)
-
-            for eps in np.arange(0, 0.5, 0.01):
-                print(eps)
-                perturbed_image = self.image_in_tensor + eps * self.data_grad
-                perturbed_image = torch.clamp(perturbed_image, 0, 1)
-                name_new_image = f'{model.__class__.__name__}_bim_attack_{eps}'
-                self.save_tensor_image(perturbed_image, name_new_image)
-                self.load_image(f'media/{name_new_image}.jpg')
-
-                if self.predicted_class is None:
-                    self.predicted_class = self.predict()
-                else:
-                    predicted_class = self.predict()
-                    self.compute_gradient()
-
-                if predicted_class != self.predicted_class and predicted_class:
-                    break
-
-            self.image = image
-            self.image_in_tensor = image_in_tensor
-        else:
+        if self.image is None:
             raise errors.ImageException('self.image was not loaded, use load_image()')
+
+        predicted_class = None
+        image = copy.deepcopy(self.image)
+        image_in_tensor = copy.deepcopy(self.image_in_tensor)
+
+        for eps in np.arange(0.01, 0.5, 0.01):
+            self.compute_gradient()
+            print(eps)
+            perturbed_image = self.image_in_tensor + eps * self.data_grad
+            perturbed_image = torch.clamp(perturbed_image, 0, 1)
+            name_new_image = f'{model.__class__.__name__}_bim_attack_{eps}'
+            self.save_tensor_image(perturbed_image, name_new_image)
+            self.load_image(f'media/{name_new_image}.jpg')
+
+            if self.predicted_class is None:
+                self.predicted_class = self.predict()
+            else:
+                predicted_class = self.predict()
+
+            if predicted_class != self.predicted_class and predicted_class:
+                break
+
+        self.image = image
+        self.image_in_tensor = image_in_tensor
+
+    def dispersion_reduction(self):
+        if self.image is None:
+            raise errors.ImageException('self.image was not loaded, use load_image()')
+
+        predicted_class = None
+        image = copy.deepcopy(self.image)
+        image_in_tensor = copy.deepcopy(self.image_in_tensor)
+
+        for eps in np.arange(0.01, 0.5, 0.01):
+            self.compute_gradient()
+            print(eps)
+            perturbed_image = self.image_in_tensor + eps * self.data_grad.sign()
+            perturbed_image = torch.max(torch.min(perturbed_image, self.image_in_tensor + eps), self.image_in_tensor - eps)
+            perturbed_image = torch.clamp(perturbed_image, 0, 1)
+
+            name_new_image = f'{model.__class__.__name__}_dispersion_reduction_{eps}'
+            self.save_tensor_image(perturbed_image, name_new_image)
+            self.load_image(f'media/{name_new_image}.jpg')
+
+            if self.predicted_class is None:
+                self.predicted_class = self.predict()
+            else:
+                self.predict()
+
+            # if predicted_class != self.predicted_class and predicted_class:
+            #     break
+
+        self.image = image
+        self.image_in_tensor = image_in_tensor
+
+    def dispersion_amplification(self):
+        pass
 
     def predict(self):
         if self.image:
@@ -141,4 +168,6 @@ if __name__ == "__main__":
     attack.load_image(filename)
     #attack.predict()
     #attack.fgsm_attack()
-    attack.bim_attack()
+    #attack.bim_attack()
+    attack.dispersion_reduction()
+    #attack.dispersion_amplification()
