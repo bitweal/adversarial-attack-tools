@@ -1,5 +1,7 @@
 from models.mobilenet_v2 import mobilenet_v2
 from models.inception_v3 import inception_v3
+import torchvision.models as models
+from torchvision.models import MobileNet_V2_Weights, Inception_V3_Weights
 import errors
 import torch
 import torch.nn as nn
@@ -18,6 +20,7 @@ class AdversarialAttack:
         self.batch = None
         self.data_grad = None
         self.predicted_class = None
+        self.features = None
 
     @staticmethod
     def load_labels(classes_path):
@@ -107,21 +110,39 @@ class AdversarialAttack:
         self.image = image
         self.image_in_tensor = image_in_tensor
 
-    def dispersion_reduction(self, layer=0):
+    def prediction(self, image, internal=None):
+        if internal is None:
+            internal = []
+
+        pred = self.model(image)
+        if len(internal) == 0:
+            return pred
+
+        layers = []
+        for ii, model in enumerate(self.features):
+            image = model(image)
+            if ii in internal:
+                layers.append(image)
+        return layers, pred
+
+    def dispersion_reduction(self, attack_layer_idx=-1, internal=None):
         if self.image is None:
             raise errors.ImageException('self.image was not loaded, use load_image()')
+        if internal is None:
+            internal = []
 
         for p in self.model.parameters():
             p.requires_grad = False
-        self.model.eval()
+        features = list(self.model.features)
+        self.features = torch.nn.ModuleList(features).eval()
         eps = 16/255
         step_size = 0.004
         X_var = torch.clone(self.batch)
         for i in range(500):
             print(i)
             X_var.requires_grad_(True)
-            internal_features = self.model(X_var)
-            logit = internal_features[layer]
+            internal_features, pred = self.prediction(X_var, internal)
+            logit = internal_features[attack_layer_idx]
             loss = -1 * logit.std()
             self.model.zero_grad()
             loss.backward()
@@ -167,7 +188,7 @@ class AdversarialAttack:
 
 
 if __name__ == "__main__":
-    model = mobilenet_v2(pretrained=True)
+    model = models.mobilenet_v2(weights=MobileNet_V2_Weights.IMAGENET1K_V1).eval()
     model.eval()
     filename = 'media/example.png'
     file_classes = 'imagenet_classes.txt'
@@ -176,5 +197,7 @@ if __name__ == "__main__":
     #attack.predict()
     #attack.fgsm_attack()
     #attack.bim_attack()
-    attack.dispersion_reduction()
+    internal = [i for i in range(len(model.features))]
+    attack_layer_idx = 8
+    attack.dispersion_reduction(attack_layer_idx, internal)
     #attack.dispersion_amplification()
