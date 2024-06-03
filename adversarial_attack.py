@@ -58,7 +58,9 @@ class AdversarialAttack:
         if self.image is None:
             raise errors.ImageException('self.image was not loaded, use load_image()')
 
-        predicted_class = None
+        if self.predicted_class is None:
+            self.predicted_class = self.predict()
+
         image = copy.deepcopy(self.image)
         image_in_tensor = copy.deepcopy(self.image_in_tensor)
 
@@ -71,10 +73,7 @@ class AdversarialAttack:
             self.save_tensor_image(perturbed_image, name_new_image)
             self.load_image(f'media/{name_new_image}.jpg')
 
-            if self.predicted_class is None:
-                self.predicted_class = self.predict()
-            else:
-                predicted_class = self.predict()
+            predicted_class = self.predict()
 
             if predicted_class != self.predicted_class and predicted_class:
                 break
@@ -86,7 +85,9 @@ class AdversarialAttack:
         if self.image is None:
             raise errors.ImageException('self.image was not loaded, use load_image()')
 
-        predicted_class = None
+        if self.predicted_class is None:
+            self.predicted_class = self.predict()
+
         image = copy.deepcopy(self.image)
         image_in_tensor = copy.deepcopy(self.image_in_tensor)
 
@@ -99,10 +100,7 @@ class AdversarialAttack:
             self.save_tensor_image(perturbed_image, name_new_image)
             self.load_image(f'media/{name_new_image}.jpg')
 
-            if self.predicted_class is None:
-                self.predicted_class = self.predict()
-            else:
-                predicted_class = self.predict()
+            predicted_class = self.predict()
 
             if predicted_class != self.predicted_class and predicted_class:
                 break
@@ -125,40 +123,39 @@ class AdversarialAttack:
                 layers.append(image)
         return layers, pred
 
-    def dispersion_reduction(self, attack_layer_idx=-1, internal=None):
+    def dispersion_reduction(self, layer_idx=-1, internal=None):
         if self.image is None:
             raise errors.ImageException('self.image was not loaded, use load_image()')
-        if internal is None:
-            internal = []
 
-        for p in self.model.parameters():
-            p.requires_grad = False
+        if self.predicted_class is None:
+            self.predicted_class = self.predict()
+
+        # for p in self.model.parameters():
+        #     p.requires_grad = False
+
         features = list(self.model.features)
         self.features = torch.nn.ModuleList(features).eval()
         eps = 16/255
         step_size = 0.004
-        X_var = torch.clone(self.batch)
+        perturbed_image = torch.clone(self.batch)
         for i in range(500):
             print(i)
-            X_var.requires_grad_(True)
-            internal_features, pred = self.prediction(X_var, internal)
-            logit = internal_features[attack_layer_idx]
+            perturbed_image.requires_grad_(True)
+            internal_features, pred = self.prediction(perturbed_image, internal)
+            logit = internal_features[layer_idx]
             loss = -1 * logit.std()
             self.model.zero_grad()
             loss.backward()
-            grad = X_var.grad.data
+            grad = perturbed_image.grad.data
 
-            X_var = X_var.detach() + step_size * grad.sign_()
-            X_var = torch.max(torch.min(X_var, self.batch + eps), self.batch - eps)
-            X_var = torch.clamp(X_var, 0, 1)
+            perturbed_image = perturbed_image.detach() + step_size * grad.sign_()
+            perturbed_image = torch.max(torch.min(perturbed_image, self.batch + eps), self.batch - eps)
+            perturbed_image = torch.clamp(perturbed_image, 0, 1)
             name_new_image = f'{model.__class__.__name__}_dispersion_reduction_{i}'
-            self.save_tensor_image(X_var, name_new_image)
+            self.save_tensor_image(perturbed_image, name_new_image)
             self.load_image(f'media/{name_new_image}.jpg')
 
-            if self.predicted_class is None:
-                self.predicted_class = self.predict()
-            else:
-                predicted_class = self.predict()
+            predicted_class = self.predict()
 
     def dispersion_amplification(self):
 
@@ -169,28 +166,28 @@ class AdversarialAttack:
         pass
 
     def predict(self):
-        if self.image:
-            with torch.no_grad():
-                output = self.model(self.batch)
-
-            probabilities = torch.nn.functional.softmax(output[0], dim=0)
-            predicted_class_idx = torch.argmax(probabilities).item()
-            predicted_class = self.class_labels[predicted_class_idx]
-
-            print("Predicted class:", predicted_class)
-            print("Probability:", probabilities[predicted_class_idx].item())
-
-            if self.predicted_class is None:
-                self.predicted_class = predicted_class
-            return predicted_class
-        else:
+        if self.image is None:
             raise errors.ImageException('self.image was not loaded, use load_image()')
+
+        with torch.no_grad():
+            output = self.model(self.batch)
+
+        probabilities = torch.nn.functional.softmax(output[0], dim=0)
+        predicted_class_idx = torch.argmax(probabilities).item()
+        predicted_class = self.class_labels[predicted_class_idx]
+
+        print("Predicted class:", predicted_class)
+        print("Probability:", probabilities[predicted_class_idx].item())
+
+        if self.predicted_class is None:
+            self.predicted_class = predicted_class
+        return predicted_class
 
 
 if __name__ == "__main__":
     model = models.mobilenet_v2(weights=MobileNet_V2_Weights.IMAGENET1K_V1).eval()
     model.eval()
-    filename = 'media/example.png'
+    filename = 'media/dog.jpg'
     file_classes = 'imagenet_classes.txt'
     attack = AdversarialAttack(model, file_classes)
     attack.load_image(filename)
