@@ -69,8 +69,8 @@ class AdversarialAttack:
         max_steps = 500
         size_steps = 1
         for step in np.arange(start, max_steps, size_steps):
-            print(step)
-            print(epsilon)
+            print('step: ', step)
+            print('epsilon: ', epsilon)
             self.compute_gradient()
             perturbed_image = self.image_in_tensor + epsilon * self.data_grad.sign()
             perturbed_image = torch.clamp(perturbed_image, 0, 1)
@@ -89,32 +89,40 @@ class AdversarialAttack:
         self.image_in_tensor = image_in_tensor
         self.batch = image_batch
 
-    def bim_attack(self):
+    def bim_attack(self, dynamic_epsilon=True, epsilon=0.01, size_step_epsilon=0.01):
         if self.image is None:
             raise errors.ImageException('self.image was not loaded, use load_image()')
+
+        image = copy.deepcopy(self.image)
+        image_in_tensor = copy.deepcopy(self.image_in_tensor)
+        image_batch = copy.deepcopy(self.batch)
 
         if self.predicted_class is None:
             self.predicted_class = self.predict()
 
-        image = copy.deepcopy(self.image)
-        image_in_tensor = copy.deepcopy(self.image_in_tensor)
-
-        for eps in np.arange(0.01, 0.5, 0.01):
-            print(eps)
+        start = 0
+        max_steps = 1000
+        size_steps = 1
+        for step in np.arange(start, max_steps, size_steps):
+            print('step: ', step)
+            print('epsilon: ', epsilon)
             self.compute_gradient()
-            perturbed_image = self.image_in_tensor + eps * self.data_grad
+            perturbed_image = self.image_in_tensor + epsilon * self.data_grad
             perturbed_image = torch.clamp(perturbed_image, 0, 1)
-            name_new_image = f'{self.model.__class__.__name__}_bim_attack_{eps}'
+            name_new_image = f'{self.model.__class__.__name__}_bim_attack_{step}'
             self.save_tensor_to_image(perturbed_image, name_new_image)
             self.load_image(f'media/{name_new_image}.jpg')
-
             predicted_class = self.predict()
+
+            if dynamic_epsilon:
+                epsilon += size_step_epsilon
 
             if predicted_class != self.predicted_class and predicted_class:
                 break
 
         self.image = image
         self.image_in_tensor = image_in_tensor
+        self.batch = image_batch
 
     def prediction(self, image, internal=None):
         layers = []
@@ -200,8 +208,8 @@ if __name__ == "__main__":
     attack = AdversarialAttack(model_mobilenet_v2, file_classes)
     attack.load_image(filename)
     attack.predict()
-    attack.fgsm_attack(True)
-    # attack.bim_attack()
+    #attack.fgsm_attack(True, 0.01, 0.01)
+    attack.bim_attack(True, 0.01, 0.01)
     # count_internal_layers = [i for i in range(len(model_mobilenet_v2.features))]
     # attack_layer_idx = 8
     # epsilon = 16/255
