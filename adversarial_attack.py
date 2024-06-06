@@ -65,10 +65,8 @@ class AdversarialAttack:
         if self.predicted_class is None:
             self.predicted_class = self.predict()
 
-        start = 0
         max_steps = 500
-        size_steps = 1
-        for step in np.arange(start, max_steps, size_steps):
+        for step in range(max_steps):
             print('step: ', step)
             print('epsilon: ', epsilon)
             self.compute_gradient()
@@ -100,10 +98,8 @@ class AdversarialAttack:
         if self.predicted_class is None:
             self.predicted_class = self.predict()
 
-        start = 0
         max_steps = 1000
-        size_steps = 1
-        for step in np.arange(start, max_steps, size_steps):
+        for step in range(max_steps):
             print('step: ', step)
             print('epsilon: ', epsilon)
             self.compute_gradient()
@@ -131,52 +127,52 @@ class AdversarialAttack:
         if internal is None:
             return layers, prediction
 
-        for index, model in enumerate(self.features):
-            image = model(image)
+        for index, layer in enumerate(self.features):
+            image = layer(image)
             if index in internal:
                 layers.append(image)
         return layers, prediction
 
-    def dispersion_reduction(self, eps, step_size, layer_idx=-1, internal_layers=None):
+    def dispersion_reduction(self, epsilon=0.01, alpha=0.001, layer_idx=-1, internal_layers=None):
         if self.image is None:
             raise errors.ImageException('self.image was not loaded, use load_image()')
+
+        image = copy.deepcopy(self.image)
+        image_in_tensor = copy.deepcopy(self.image_in_tensor)
+        image_batch = copy.deepcopy(self.batch)
 
         if self.predicted_class is None:
             self.predicted_class = self.predict()
 
-        image = copy.deepcopy(self.image)
-        image_in_tensor = copy.deepcopy(self.image_in_tensor)
-
-        # for p in self.model.parameters():
-        #     p.requires_grad = False
-
         features = list(self.model.features)
         self.features = torch.nn.ModuleList(features).eval()
-        perturbed_image = torch.clone(self.batch)
-        for i in range(500):
-            print(i)
-            perturbed_image.requires_grad_(True)
-            internal_features, output = self.prediction(perturbed_image, internal_layers)
+        perturbed_image = copy.deepcopy(self.batch)
+        max_steps = 1000
+        for step in range(max_steps):
+            print('step: ', step)
+
+            self.batch.requires_grad = True
+            internal_features, output = self.prediction(self.batch, internal_layers)
             logit = internal_features[layer_idx]
             loss = -1 * logit.std()
             self.model.zero_grad()
             loss.backward()
-            grad = perturbed_image.grad.data
+            data_grad = self.batch.grad.data
 
-            perturbed_image = perturbed_image.detach() + step_size * grad.sign_()
-            perturbed_image = torch.max(torch.min(perturbed_image, self.batch + eps), self.batch - eps)
+            perturbed_image = perturbed_image + alpha * data_grad.sign()
+            perturbed_image = torch.clamp(perturbed_image, image_batch - epsilon, image_batch + epsilon)
             perturbed_image = torch.clamp(perturbed_image, 0, 1)
-            name_new_image = f'{self.model.__class__.__name__}_dispersion_reduction_{i}'
+            name_new_image = f'{self.model.__class__.__name__}_dispersion_reduction_{step}'
             self.save_tensor_to_image(perturbed_image, name_new_image)
             self.load_image(f'media/{name_new_image}.jpg')
-
             predicted_class = self.predict()
 
-            # if predicted_class != self.predicted_class and predicted_class:
-            #     break
+            if predicted_class != self.predicted_class and predicted_class:
+                break
 
         self.image = image
         self.image_in_tensor = image_in_tensor
+        self.batch = image_batch
 
     def dispersion_amplification(self):
         pass
@@ -205,14 +201,14 @@ if __name__ == "__main__":
     model_mobilenet_v2.eval()
     filename = 'media/dog.jpg'
     file_classes = 'imagenet_classes.txt'
+    list_index_layers = [i for i in range(len(model_mobilenet_v2.features))]
+    attack_layer_idx = 4
+
     attack = AdversarialAttack(model_mobilenet_v2, file_classes)
     attack.load_image(filename)
-    attack.predict()
+    #attack.predict()
     #attack.fgsm_attack(True, 0.01, 0.01)
-    attack.bim_attack(True, 0.01, 0.01)
-    # count_internal_layers = [i for i in range(len(model_mobilenet_v2.features))]
-    # attack_layer_idx = 8
-    # epsilon = 16/255
-    # step = 0.004
-    # attack.dispersion_reduction(epsilon, step, attack_layer_idx, count_internal_layers)
+    #attack.bim_attack(True, 0.01, 0.01)
+
+    attack.dispersion_reduction(0.1, 0.004, attack_layer_idx, list_index_layers)
     #attack.dispersion_amplification()
