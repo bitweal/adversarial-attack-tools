@@ -133,7 +133,7 @@ class AdversarialAttack:
                 layers.append(image)
         return layers, prediction
 
-    def dispersion_reduction(self, epsilon=0.01, alpha=0.001, layer_idx=-1, internal_layers=None):
+    def dispersion_reduction(self, attack_budget=0.01, alpha=0.001, layer_idx=-1, internal_layers=None):
         if self.image is None:
             raise errors.ImageException('self.image was not loaded, use load_image()')
 
@@ -154,13 +154,13 @@ class AdversarialAttack:
             self.batch.requires_grad = True
             internal_features, output = self.prediction(self.batch, internal_layers)
             logit = internal_features[layer_idx]
-            loss = -1 * logit.std()
+            loss = -logit.std()
             self.model.zero_grad()
             loss.backward()
             data_grad = self.batch.grad.data
 
             perturbed_image = perturbed_image + alpha * data_grad.sign()
-            perturbed_image = torch.clamp(perturbed_image, image_batch - epsilon, image_batch + epsilon)
+            perturbed_image = torch.clamp(perturbed_image, image_batch - attack_budget, image_batch + attack_budget)
             perturbed_image = torch.clamp(perturbed_image, 0, 1)
             name_new_image = f'{self.model.__class__.__name__}_dispersion_reduction_{step}'
             self.save_tensor_to_image(perturbed_image, name_new_image)
@@ -174,8 +174,47 @@ class AdversarialAttack:
         self.image_in_tensor = image_in_tensor
         self.batch = image_batch
 
-    def dispersion_amplification(self):
-        pass
+    def dispersion_amplification(self, attack_budget=0.01, alpha=0.001, layer_idx=-1, internal_layers=None):
+        if self.image is None:
+            raise errors.ImageException('self.image was not loaded, use load_image()')
+
+        image = copy.deepcopy(self.image)
+        image_in_tensor = copy.deepcopy(self.image_in_tensor)
+        image_batch = copy.deepcopy(self.batch)
+
+        if self.predicted_class is None:
+            self.predicted_class = self.predict()
+
+        features = list(self.model.features)
+        self.features = torch.nn.ModuleList(features).eval()
+        perturbed_image = copy.deepcopy(self.batch)
+
+        max_steps = 1000
+        for step in range(max_steps):
+            print('step: ', step)
+
+            self.batch.requires_grad = True
+            internal_features, output = self.prediction(self.batch, internal_layers)
+            logit = internal_features[layer_idx]
+            loss = logit.std()
+            self.model.zero_grad()
+            loss.backward()
+            data_grad = self.batch.grad.data
+
+            perturbed_image = perturbed_image + alpha * data_grad.sign()
+            perturbed_image = torch.clamp(perturbed_image, image_batch - attack_budget, image_batch + attack_budget)
+            perturbed_image = torch.clamp(perturbed_image, 0, 1)
+            name_new_image = f'{self.model.__class__.__name__}_dispersion_amplification_{step}'
+            self.save_tensor_to_image(perturbed_image, name_new_image)
+            self.load_image(f'media/{name_new_image}.jpg')
+            predicted_class = self.predict()
+
+            if predicted_class != self.predicted_class and predicted_class:
+                break
+
+        self.image = image
+        self.image_in_tensor = image_in_tensor
+        self.batch = image_batch
 
     def predict(self):
         if self.image is None:
@@ -203,6 +242,7 @@ if __name__ == "__main__":
     file_classes = 'imagenet_classes.txt'
     list_index_layers = [i for i in range(len(model_mobilenet_v2.features))]
     attack_layer_idx = 4
+    eps = 16/255
 
     attack = AdversarialAttack(model_mobilenet_v2, file_classes)
     attack.load_image(filename)
@@ -210,5 +250,5 @@ if __name__ == "__main__":
     #attack.fgsm_attack(True, 0.01, 0.01)
     #attack.bim_attack(True, 0.01, 0.01)
 
-    attack.dispersion_reduction(0.1, 0.004, attack_layer_idx, list_index_layers)
-    #attack.dispersion_amplification()
+    #attack.dispersion_reduction(eps, 0.004, attack_layer_idx, list_index_layers)
+    attack.dispersion_amplification(eps, 0.004, attack_layer_idx, list_index_layers)
