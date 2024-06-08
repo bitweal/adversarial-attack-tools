@@ -1,14 +1,11 @@
-from models.mobilenet_v2 import mobilenet_v2
-from models.inception_v3 import inception_v3
 import torchvision.models as models
-from torchvision.models import MobileNet_V2_Weights, Inception_V3_Weights
+from torchvision.models import AlexNet_Weights, MobileNet_V2_Weights, Inception_V3_Weights
 import errors
 import torch
 import torch.nn as nn
 from torchvision import transforms
 from PIL import Image
 import copy
-import numpy as np
 
 
 class AdversarialAttack:
@@ -236,19 +233,35 @@ class AdversarialAttack:
 
 
 if __name__ == "__main__":
-    model_mobilenet_v2 = models.mobilenet_v2(weights=MobileNet_V2_Weights.IMAGENET1K_V1).eval()
-    model_mobilenet_v2.eval()
+    resnet18 = models.resnet18(weights='IMAGENET1K_V1').eval()
+    squeezenet = models.squeezenet1_0(weights='IMAGENET1K_V1').eval()
+    vgg19 = models.vgg19(weights='IMAGENET1K_V1').eval()
+    densenet = models.densenet161(weights='IMAGENET1K_V1').eval()
+    inception = models.inception_v3(weights='IMAGENET1K_V1').eval()
+    googlenet = models.googlenet(weights='IMAGENET1K_V1').eval()
+    shufflenet = models.shufflenet_v2_x1_0(weights='IMAGENET1K_V1').eval()
+    mobilenet_v2 = models.mobilenet_v2(weights='IMAGENET1K_V1').eval()
+    mobilenet_v3_large = models.mobilenet_v3_large(weights='IMAGENET1K_V1').eval()
+    resnext50_32x4d = models.resnext50_32x4d(weights='IMAGENET1K_V1').eval()
+    wide_resnet50_2 = models.wide_resnet50_2(weights='IMAGENET1K_V1').eval()
+    mnasnet = models.mnasnet1_0(weights='IMAGENET1K_V1').eval()
+
+    models = [resnet18, squeezenet, vgg19, densenet, inception, googlenet, shufflenet, mobilenet_v2,
+              mobilenet_v3_large, resnext50_32x4d, wide_resnet50_2, mnasnet]
+
     filename = 'media/dog.jpg'
     file_classes = 'imagenet_classes.txt'
-    list_index_layers = [i for i in range(len(model_mobilenet_v2.features))]
     attack_layer_idx = 4
-    eps = 16/255
+    eps = 16 / 255
 
-    attack = AdversarialAttack(model_mobilenet_v2, file_classes)
-    attack.load_image(filename)
-    #attack.predict()
-    #attack.fgsm_attack(True, 0.01, 0.01)
+    for model in models:
+        list_index_layers = [i for i in range(len(list(model.modules())))]
+        print(model.__class__.__name__)
+        attack = AdversarialAttack(model, file_classes)
+        attack.load_image(filename)
+        #attack.predict()
+        #attack.fgsm_attack(True, 0.01, 0.01)
+
     #attack.bim_attack(True, 0.01, 0.01)
-
     #attack.dispersion_reduction(eps, 0.004, attack_layer_idx, list_index_layers)
-    attack.dispersion_amplification(eps, 0.004, attack_layer_idx, list_index_layers)
+    #attack.dispersion_amplification(eps, 0.004, attack_layer_idx, list_index_layers)
