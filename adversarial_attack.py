@@ -42,6 +42,17 @@ class AdversarialAttack:
         self.image_in_tensor = transforms.ToTensor()(self.image)
         self.batch = self.image_in_tensor.unsqueeze(0)
 
+    def get_list_index_layers(self):
+        features = list(self.model.children())
+        if len(features) in [2, 3]:
+            features = features[0]
+            list_index_layers = [i for i in range(len(features))]
+        else:
+            list_index_layers = [i for i in range(len(features))]
+
+        self.features = torch.nn.ModuleList(features).eval()
+        return list_index_layers
+
     def compute_gradient(self):
         self.batch.requires_grad = True
         output = self.model(self.batch)
@@ -120,17 +131,19 @@ class AdversarialAttack:
     def prediction(self, image, internal=None):
         layers = []
         prediction = self.model(image)
-
         if internal is None:
             return layers, prediction
 
         for index, layer in enumerate(self.features):
-            image = layer(image)
-            if index in internal:
-                layers.append(image)
+            try:
+                image = layer(image)
+                if index in internal:
+                    layers.append(image)
+            except IndexError:
+                continue
         return layers, prediction
 
-    def dispersion_reduction(self, attack_budget=0.01, alpha=0.001, layer_idx=-1, internal_layers=None):
+    def dispersion_reduction(self, attack_budget=0.01, alpha=0.001, layer_idx=-1):
         if self.image is None:
             raise errors.ImageException('self.image was not loaded, use load_image()')
 
@@ -141,8 +154,7 @@ class AdversarialAttack:
         if self.predicted_class is None:
             self.predicted_class = self.predict()
 
-        features = list(self.model.features)
-        self.features = torch.nn.ModuleList(features).eval()
+        internal_layers = self.get_list_index_layers()
         perturbed_image = copy.deepcopy(self.batch)
         max_steps = 1000
         for step in range(max_steps):
@@ -255,13 +267,11 @@ if __name__ == "__main__":
     eps = 16 / 255
 
     for model in models:
-        list_index_layers = [i for i in range(len(list(model.modules())))]
         print(model.__class__.__name__)
         attack = AdversarialAttack(model, file_classes)
         attack.load_image(filename)
-        #attack.predict()
-        #attack.fgsm_attack(True, 0.01, 0.01)
-
-    #attack.bim_attack(True, 0.01, 0.01)
-    #attack.dispersion_reduction(eps, 0.004, attack_layer_idx, list_index_layers)
-    #attack.dispersion_amplification(eps, 0.004, attack_layer_idx, list_index_layers)
+        attack.predict()
+        attack.fgsm_attack(True, 0.01, 0.01)
+        #attack.bim_attack(True, 0.01, 0.01)
+        #attack.dispersion_reduction(eps, 0.004, attack_layer_idx)
+        #attack.dispersion_amplification(eps, 0.004, attack_layer_idx, list_index_layers)
