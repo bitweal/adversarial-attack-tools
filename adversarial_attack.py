@@ -122,38 +122,33 @@ class AdversarialAttack:
         self.image_in_tensor = image_in_tensor
         self.batch = image_batch
 
-    def get_list_index_layers(self):
+    def _set_list_layers(self):
         features = list(self.model.children())
         if len(features) in [2, 3]:
             features = features[0]
-
-        list_index_layers = [i for i in range(len(features))]
         self.features = torch.nn.ModuleList(features).eval()
-        return list_index_layers
 
-    def prediction(self, image, internal=None):
+    def prediction(self, image):
         layers = []
-
-        if internal is None:
-            return layers
-
         for index, layer in enumerate(self.features):
-            if not isinstance(layer, nn.Linear):
-                image = layer(image)
-                if index in internal:
+            try:
+                if not isinstance(layer, nn.Linear):
+                    image = layer(image)
                     layers.append(image)
+            except RuntimeError:
+                continue
         return layers
 
-    def _compute_loss_for_dispersion(self, image, layer_idx, internal_layers):
+    def _compute_loss_for_dispersion(self, image, attack_layer_idx):
         image.requires_grad = True
-        internal_features = self.prediction(image, internal_layers)
-        logit = internal_features[layer_idx]
+        internal_features = self.prediction(image)
+        logit = internal_features[attack_layer_idx]
         loss = -logit.std()
         self.model.zero_grad()
         loss.backward()
         self.data_grad = image.grad.data
 
-    def dispersion_reduction(self, alpha=0.001, attack_budget=0.01, layer_idx=-1):
+    def dispersion_reduction(self, alpha=0.001, attack_budget=0.01, attack_layer_idx=-1):
         if self.image is None:
             raise errors.ImageException('self.image was not loaded, use load_image()')
 
@@ -164,13 +159,13 @@ class AdversarialAttack:
         if self.predicted_class is None:
             self.predicted_class = self.predict()
 
-        internal_layers = self.get_list_index_layers()
+        self._set_list_layers()
         perturbed_image = copy.deepcopy(self.batch)
         max_steps = 1000
         for step in range(max_steps):
             print('step: ', step)
             print('alpha: ', alpha)
-            self._compute_loss_for_dispersion(self.batch, layer_idx, internal_layers)
+            self._compute_loss_for_dispersion(self.batch, attack_layer_idx)
             perturbed_image = perturbed_image + alpha * self.data_grad.sign()
             perturbed_image = torch.clamp(perturbed_image, image_batch - attack_budget, image_batch + attack_budget)
             perturbed_image = torch.clamp(perturbed_image, 0, 1)
@@ -266,9 +261,8 @@ if __name__ == "__main__":
 
     filename = 'media/dog.jpg'
     file_classes = 'imagenet_classes.txt'
-    attack_layer_idx = 4
+    layer_idx = 4
     eps = 16 / 255
-
     for model in models:
         print(model.__class__.__name__)
         attack = AdversarialAttack(model, file_classes)
@@ -276,6 +270,5 @@ if __name__ == "__main__":
         attack.predict()
         #attack.fgsm_attack(True, 0.01, 0.01, 0)
         #attack.bim_attack(True, 0.01, 0.01, 0)
-        attack.dispersion_reduction(0.004, eps, attack_layer_idx)
-        break
+        attack.dispersion_reduction(0.01, eps, layer_idx)
         #attack.dispersion_amplification(eps, 0.004, attack_layer_idx, list_index_layers)
