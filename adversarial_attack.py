@@ -126,10 +126,8 @@ class AdversarialAttack:
         features = list(self.model.children())
         if len(features) in [2, 3]:
             features = features[0]
-            list_index_layers = [i for i in range(len(features))]
-        else:
-            list_index_layers = [i for i in range(len(features))]
 
+        list_index_layers = [i for i in range(len(features))]
         self.features = torch.nn.ModuleList(features).eval()
         return list_index_layers
 
@@ -144,11 +142,11 @@ class AdversarialAttack:
                 image = layer(image)
                 if index in internal:
                     layers.append(image)
-            except IndexError:
+            except RuntimeError:
                 continue
         return layers, prediction
 
-    def dispersion_reduction(self, attack_budget=0.01, alpha=0.001, layer_idx=-1):
+    def dispersion_reduction(self, alpha=0.001, attack_budget=0.01, layer_idx=-1):
         if self.image is None:
             raise errors.ImageException('self.image was not loaded, use load_image()')
 
@@ -277,6 +275,7 @@ if __name__ == "__main__":
         attack.load_image(filename)
         attack.predict()
         #attack.fgsm_attack(True, 0.01, 0.01, 0)
-        attack.bim_attack(True, 0.01, 0.01, 0)
-        #attack.dispersion_reduction(eps, 0.004, attack_layer_idx)
+        #attack.bim_attack(True, 0.01, 0.01, 0)
+        attack.dispersion_reduction(0.004, eps, attack_layer_idx)
+        break
         #attack.dispersion_amplification(eps, 0.004, attack_layer_idx, list_index_layers)
