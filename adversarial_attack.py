@@ -148,7 +148,12 @@ class AdversarialAttack:
         loss.backward()
         self.data_grad = image.grad.data
 
-    def dispersion_reduction(self, alpha=0.001, attack_budget=0.01, attack_layer_idx=-1):
+    def dispersion_reduction(self, dynamic_alpha=True,
+                             alpha=0.01,
+                             size_step_alpha=0.001,
+                             attack_budget=0.01,
+                             attack_layer_idx=-1,
+                             step_after_change_class=0):
         if self.image is None:
             raise errors.ImageException('self.image was not loaded, use load_image()')
 
@@ -174,8 +179,14 @@ class AdversarialAttack:
             self.load_image(f'media/{name_new_image}.jpg')
             predicted_class = self.predict()
 
-            if predicted_class != self.predicted_class and predicted_class:
-                break
+            if dynamic_alpha:
+                alpha += size_step_alpha
+
+            if step_after_change_class <= 0:
+                if predicted_class != self.predicted_class and predicted_class:
+                    break
+            else:
+                step_after_change_class -= 1
 
         self.image = image
         self.image_in_tensor = image_in_tensor
@@ -270,5 +281,5 @@ if __name__ == "__main__":
         attack.predict()
         #attack.fgsm_attack(True, 0.01, 0.01, 0)
         #attack.bim_attack(True, 0.01, 0.01, 0)
-        attack.dispersion_reduction(0.01, eps, layer_idx)
+        attack.dispersion_reduction(True, 0.01, 0.01, eps, layer_idx)
         #attack.dispersion_amplification(eps, 0.004, attack_layer_idx, list_index_layers)
