@@ -139,11 +139,11 @@ class AdversarialAttack:
                 continue
         return layers
 
-    def _compute_loss_for_dispersion(self, image, attack_layer_idx):
+    def _compute_loss_for_dispersion(self, image, attack_layer_idx, sign):
         image.requires_grad = True
         internal_features = self.prediction(image)
         logit = internal_features[attack_layer_idx]
-        loss = -logit.std()
+        loss = sign * logit.std()
         self.model.zero_grad()
         loss.backward()
         self.data_grad = image.grad.data
@@ -170,7 +170,7 @@ class AdversarialAttack:
         for step in range(max_steps):
             print('step: ', step)
             print('alpha: ', alpha)
-            self._compute_loss_for_dispersion(self.batch, attack_layer_idx)
+            self._compute_loss_for_dispersion(self.batch, attack_layer_idx, -1)
             perturbed_image = perturbed_image + alpha * self.data_grad.sign()
             perturbed_image = torch.clamp(perturbed_image, image_batch - attack_budget, image_batch + attack_budget)
             perturbed_image = torch.clamp(perturbed_image, 0, 1)
@@ -192,7 +192,12 @@ class AdversarialAttack:
         self.image_in_tensor = image_in_tensor
         self.batch = image_batch
 
-    def dispersion_amplification(self, attack_budget=0.01, alpha=0.001, layer_idx=-1, internal_layers=None):
+    def dispersion_amplification(self, dynamic_alpha=True,
+                                 alpha=0.01,
+                                 size_step_alpha=0.001,
+                                 attack_budget=0.01,
+                                 attack_layer_idx=-1,
+                                 step_after_change_class=0):
         if self.image is None:
             raise errors.ImageException('self.image was not loaded, use load_image()')
 
@@ -203,32 +208,30 @@ class AdversarialAttack:
         if self.predicted_class is None:
             self.predicted_class = self.predict()
 
-        features = list(self.model.features)
-        self.features = torch.nn.ModuleList(features).eval()
+        self._set_list_layers()
         perturbed_image = copy.deepcopy(self.batch)
 
         max_steps = 1000
         for step in range(max_steps):
             print('step: ', step)
-
-            self.batch.requires_grad = True
-            internal_features, output = self.prediction(self.batch, internal_layers)
-            logit = internal_features[layer_idx]
-            loss = logit.std()
-            self.model.zero_grad()
-            loss.backward()
-            data_grad = self.batch.grad.data
-
-            perturbed_image = perturbed_image + alpha * data_grad.sign()
+            print('alpha: ', alpha)
+            self._compute_loss_for_dispersion(self.batch, attack_layer_idx, 1)
+            perturbed_image = perturbed_image + alpha * self.data_grad.sign()
             perturbed_image = torch.clamp(perturbed_image, image_batch - attack_budget, image_batch + attack_budget)
             perturbed_image = torch.clamp(perturbed_image, 0, 1)
-            name_new_image = f'{self.model.__class__.__name__}_dispersion_amplification_{step}'
+            name_new_image = f'{self.model.__class__.__name__}_dispersion_reduction_{step}'
             self._save_tensor_to_image(perturbed_image, name_new_image)
             self.load_image(f'media/{name_new_image}.jpg')
             predicted_class = self.predict()
 
-            if predicted_class != self.predicted_class and predicted_class:
-                break
+            if dynamic_alpha:
+                alpha += size_step_alpha
+
+            if step_after_change_class <= 0:
+                if predicted_class != self.predicted_class and predicted_class:
+                    break
+            else:
+                step_after_change_class -= 1
 
         self.image = image
         self.image_in_tensor = image_in_tensor
@@ -281,5 +284,5 @@ if __name__ == "__main__":
         attack.predict()
         #attack.fgsm_attack(True, 0.01, 0.01, 0)
         #attack.bim_attack(True, 0.01, 0.01, 0)
-        attack.dispersion_reduction(True, 0.01, 0.01, eps, layer_idx)
-        #attack.dispersion_amplification(eps, 0.004, attack_layer_idx, list_index_layers)
+        #attack.dispersion_reduction(True, 0.01, 0.01, eps, layer_idx)
+        attack.dispersion_amplification(True, 0.001, 0.001, eps, layer_idx)
