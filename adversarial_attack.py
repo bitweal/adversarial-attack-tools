@@ -1,5 +1,4 @@
 import torchvision.models as models
-from torchvision.models import AlexNet_Weights, MobileNet_V2_Weights, Inception_V3_Weights
 import errors
 import torch
 import torch.nn as nn
@@ -26,15 +25,15 @@ class AdversarialAttack:
         return labels
 
     @staticmethod
-    def save_tensor_to_image(image_tensor, path_save_image):
+    def _save_tensor_to_image(image_tensor, path_save_image):
         if len(image_tensor.shape) == 4:
             image_tensor = image_tensor[0]
         processed_image = transforms.ToPILImage()(image_tensor)
         processed_image.save(f'media/{path_save_image}.jpg')
 
     @staticmethod
-    def save_image(image, path_save_image):
-        processed_image = image.resize((224, 224), resample=Image.BILINEAR)
+    def resize_image(image, path_save_image, size):
+        processed_image = image.resize((size, size), resample=Image.BILINEAR)
         processed_image.save(f'media/{path_save_image}.jpg')
 
     def load_image(self, image_path):
@@ -81,7 +80,7 @@ class AdversarialAttack:
             perturbed_image = self.image_in_tensor + epsilon * self.data_grad.sign()
             perturbed_image = torch.clamp(perturbed_image, 0, 1)
             name_new_image = f'{self.model.__class__.__name__}_fgsm_attack_{step}'
-            self.save_tensor_to_image(perturbed_image, name_new_image)
+            self._save_tensor_to_image(perturbed_image, name_new_image)
             self.load_image(f'media/{name_new_image}.jpg')
             predicted_class = self.predict()
 
@@ -114,7 +113,7 @@ class AdversarialAttack:
             perturbed_image = self.image_in_tensor + epsilon * self.data_grad
             perturbed_image = torch.clamp(perturbed_image, 0, 1)
             name_new_image = f'{self.model.__class__.__name__}_bim_attack_{step}'
-            self.save_tensor_to_image(perturbed_image, name_new_image)
+            self._save_tensor_to_image(perturbed_image, name_new_image)
             self.load_image(f'media/{name_new_image}.jpg')
             predicted_class = self.predict()
 
@@ -172,7 +171,7 @@ class AdversarialAttack:
             perturbed_image = torch.clamp(perturbed_image, image_batch - attack_budget, image_batch + attack_budget)
             perturbed_image = torch.clamp(perturbed_image, 0, 1)
             name_new_image = f'{self.model.__class__.__name__}_dispersion_reduction_{step}'
-            self.save_tensor_to_image(perturbed_image, name_new_image)
+            self._save_tensor_to_image(perturbed_image, name_new_image)
             self.load_image(f'media/{name_new_image}.jpg')
             predicted_class = self.predict()
 
@@ -214,7 +213,7 @@ class AdversarialAttack:
             perturbed_image = torch.clamp(perturbed_image, image_batch - attack_budget, image_batch + attack_budget)
             perturbed_image = torch.clamp(perturbed_image, 0, 1)
             name_new_image = f'{self.model.__class__.__name__}_dispersion_amplification_{step}'
-            self.save_tensor_to_image(perturbed_image, name_new_image)
+            self._save_tensor_to_image(perturbed_image, name_new_image)
             self.load_image(f'media/{name_new_image}.jpg')
             predicted_class = self.predict()
 
