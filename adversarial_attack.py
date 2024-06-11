@@ -76,7 +76,7 @@ class AdversarialAttack:
             if dynamic_epsilon:
                 epsilon += size_step_epsilon
 
-            if step_after_change_class == 0:
+            if step_after_change_class <= 0:
                 if predicted_class != self.predicted_class and predicted_class:
                     break
             else:
@@ -86,7 +86,7 @@ class AdversarialAttack:
         self.image_in_tensor = image_in_tensor
         self.batch = image_batch
 
-    def bim_attack(self, dynamic_epsilon=True, epsilon=0.01, size_step_epsilon=0.01):
+    def bim_attack(self, dynamic_epsilon=True, epsilon=0.01, size_step_epsilon=0.01, step_after_change_class=0):
         if self.image is None:
             raise errors.ImageException('self.image was not loaded, use load_image()')
 
@@ -98,11 +98,11 @@ class AdversarialAttack:
             self.predicted_class = self.predict()
 
         max_steps = 1000
-        for step in range(max_steps):
+        for step in range(1, max_steps):
             print('step: ', step)
             print('epsilon: ', epsilon)
             self._compute_gradient(self.batch)
-            perturbed_image = self.image_in_tensor + epsilon * self.data_grad
+            perturbed_image = self.batch + epsilon * self.data_grad
             perturbed_image = torch.clamp(perturbed_image, 0, 1)
             name_new_image = f'{self.model.__class__.__name__}_bim_attack_{step}'
             self._save_tensor_to_image(perturbed_image, name_new_image)
@@ -112,8 +112,11 @@ class AdversarialAttack:
             if dynamic_epsilon:
                 epsilon += size_step_epsilon
 
-            if predicted_class != self.predicted_class and predicted_class:
-                break
+            if step_after_change_class <= 0:
+                if predicted_class != self.predicted_class and predicted_class:
+                    break
+            else:
+                step_after_change_class -= 1
 
         self.image = image
         self.image_in_tensor = image_in_tensor
@@ -273,8 +276,7 @@ if __name__ == "__main__":
         attack = AdversarialAttack(model, file_classes)
         attack.load_image(filename)
         attack.predict()
-        attack.fgsm_attack(True, 0.01, 0.01, 0)
-        break
-        #attack.bim_attack(True, 0.01, 0.01)
+        #attack.fgsm_attack(True, 0.01, 0.01, 0)
+        attack.bim_attack(True, 0.01, 0.01, 0)
         #attack.dispersion_reduction(eps, 0.004, attack_layer_idx)
         #attack.dispersion_amplification(eps, 0.004, attack_layer_idx, list_index_layers)
