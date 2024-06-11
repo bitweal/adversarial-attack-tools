@@ -144,6 +144,15 @@ class AdversarialAttack:
                     layers.append(image)
         return layers
 
+    def _compute_loss_for_dispersion(self, image, layer_idx, internal_layers):
+        image.requires_grad = True
+        internal_features = self.prediction(image, internal_layers)
+        logit = internal_features[layer_idx]
+        loss = -logit.std()
+        self.model.zero_grad()
+        loss.backward()
+        self.data_grad = image.grad.data
+
     def dispersion_reduction(self, alpha=0.001, attack_budget=0.01, layer_idx=-1):
         if self.image is None:
             raise errors.ImageException('self.image was not loaded, use load_image()')
@@ -161,15 +170,8 @@ class AdversarialAttack:
         for step in range(max_steps):
             print('step: ', step)
             print('alpha: ', alpha)
-            self.batch.requires_grad = True
-            internal_features = self.prediction(self.batch, internal_layers)
-            logit = internal_features[layer_idx]
-            loss = -logit.std()
-            self.model.zero_grad()
-            loss.backward()
-            data_grad = self.batch.grad.data
-
-            perturbed_image = perturbed_image + alpha * data_grad.sign()
+            self._compute_loss_for_dispersion(self.batch, layer_idx, internal_layers)
+            perturbed_image = perturbed_image + alpha * self.data_grad.sign()
             perturbed_image = torch.clamp(perturbed_image, image_batch - attack_budget, image_batch + attack_budget)
             perturbed_image = torch.clamp(perturbed_image, 0, 1)
             name_new_image = f'{self.model.__class__.__name__}_dispersion_reduction_{step}'
