@@ -133,18 +133,16 @@ class AdversarialAttack:
 
     def prediction(self, image, internal=None):
         layers = []
-        prediction = self.model(image)
+
         if internal is None:
-            return layers, prediction
+            return layers
 
         for index, layer in enumerate(self.features):
-            try:
+            if not isinstance(layer, nn.Linear):
                 image = layer(image)
                 if index in internal:
                     layers.append(image)
-            except RuntimeError:
-                continue
-        return layers, prediction
+        return layers
 
     def dispersion_reduction(self, alpha=0.001, attack_budget=0.01, layer_idx=-1):
         if self.image is None:
@@ -162,9 +160,9 @@ class AdversarialAttack:
         max_steps = 1000
         for step in range(max_steps):
             print('step: ', step)
-
+            print('alpha: ', alpha)
             self.batch.requires_grad = True
-            internal_features, output = self.prediction(self.batch, internal_layers)
+            internal_features = self.prediction(self.batch, internal_layers)
             logit = internal_features[layer_idx]
             loss = -logit.std()
             self.model.zero_grad()
