@@ -219,7 +219,7 @@ class AdversarialAttack:
             perturbed_image = perturbed_image + alpha * self.data_grad.sign()
             perturbed_image = torch.clamp(perturbed_image, image_batch - attack_budget, image_batch + attack_budget)
             perturbed_image = torch.clamp(perturbed_image, 0, 1)
-            name_new_image = f'{self.model.__class__.__name__}_dispersion_reduction_{step}'
+            name_new_image = f'{self.model.__class__.__name__}_dispersion_amplification_{step}'
             self._save_tensor_to_image(perturbed_image, name_new_image)
             self.load_image(f'media/{name_new_image}.jpg')
             predicted_class = self.predict()
@@ -274,15 +274,15 @@ if __name__ == "__main__":
     filename = 'media/dog.jpg'
     file_classes = 'imagenet_classes.txt'
     eps = 16 / 25
-    for model in models:
-        print(model.__class__.__name__)
-        list_features = list(model.children())
+    for model_x in models:
+        print(model_x.__class__.__name__)
+        list_features = list(model_x.children())
         if len(list_features) in [2, 3]:
             list_features = list_features[0]
         local_layers = [i for i in range(len(list_features))]
         layer_idx = len(local_layers) // 2 - 1
 
-        attack = AdversarialAttack(model, file_classes)
+        attack = AdversarialAttack(model_x, file_classes)
         attack.load_image(filename)
         attack.predict()
         attack.fgsm_attack(True, 0.001, 0.001, 0)
