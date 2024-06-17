@@ -22,12 +22,11 @@ The purpose of this repository is to facilitate experimentation with adversarial
     - **Resize an Image**: You can resize an image using the `resize_image` method, which saves the resized image in the `media` folder.
     - **Predict the Class**: Use the `predict` method to get the model's prediction for the loaded image.
 
-**Adversarial Attacks**: The `AdversarialAttack` class provides several methods to perform adversarial attacks:
-    - **FGSM Attack**: `fgsm_attack(dynamic_epsilon, epsilon, size_step_epsilon, step_after_change_class)`
-    - **BIM Attack**: `bim_attack(dynamic_epsilon, epsilon, size_step_epsilon, step_after_change_class)`
-    - **Dispersion Reduction**: `dispersion_reduction(dynamic_alpha, alpha, size_step_alpha, attack_budget, attack_layer_idx, step_after_change_class)`
+**Adversarial Attacks**: The `AdversarialAttack` class provides several methods to perform adversarial attacks:\
+    - **FGSM Attack**: `fgsm_attack(dynamic_epsilon, epsilon, size_step_epsilon, step_after_change_class)`\
+    - **BIM Attack**: `bim_attack(dynamic_epsilon, epsilon, size_step_epsilon, step_after_change_class)`\
+    - **Dispersion Reduction**: `dispersion_reduction(dynamic_alpha, alpha, size_step_alpha, attack_budget, attack_layer_idx, step_after_change_class)`\
     - **Dispersion Amplification**: `dispersion_amplification(dynamic_alpha, alpha, size_step_alpha, attack_budget, attack_layer_idx, step_after_change_class)`
-
 
 ## Repository Structure
 
