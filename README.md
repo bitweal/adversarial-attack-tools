@@ -1,6 +1,6 @@
 # Adversarial Attack Tools
 
-Welcome to the Adversarial Attack Tools repository! This repository provides Python code to conduct adversarial attacks on image classification models. It offers an easy-to-use platform for experimenting with adversarial attacks using pre-trained models such as MobileNetV2 and InceptionV3.
+Welcome to the Adversarial Attack Tools repository! This repository provides Python code to conduct adversarial attacks on image classification models. It offers an easy-to-use platform for experimenting with adversarial attacks using a variety of models available in `torchvision`.
 
 ## Purpose
 
@@ -8,8 +8,7 @@ The purpose of this repository is to facilitate experimentation with adversarial
 
 ## Features
 
-- **Adversarial Attack Implementation**: The repository implements the Basic Iterative Method (BIM) and Fast Gradient Sign Method (FGSM) for generating adversarial examples.
-- **Supported Models**: Pre-trained MobileNetV2 and Inception v3 model. This models is widely used for image classification tasks and serves as the target for adversarial attacks.
+- **Adversarial Attack Implementation**: The repository implements the Fast Gradient Sign Method (FGSM), Basic Iterative Method (BIM),  dispersion reduction (DR), and dispersion amplification (DA) for generating adversarial examples.
 - **User-Friendly Interface**: The code is structured for ease of understanding and use. It includes functionalities for loading images, making predictions, and conducting adversarial attacks.
 
 ## How to Use
@@ -18,17 +17,20 @@ The purpose of this repository is to facilitate experimentation with adversarial
 
 2. **Install Dependencies**: Ensure Python is installed along with the required libraries specified in `requirements.txt`. You can install them via `pip install -r requirements.txt`.
 
-3. **Prepare the Image**: Place the image intended for the attack in the `media` folder. Ensure it's in a supported format.
+3. **Using the Code**:
+    - **Load an Image**: You can load an image using the `load_image` method of the `AdversarialAttack` class.
+    - **Resize an Image**: You can resize an image using the `resize_image` method, which saves the resized image in the `media` folder.
+    - **Predict the Class**: Use the `predict` method to get the model's prediction for the loaded image.
 
-4. **Run the Code**: Execute the `adversarial_attack.py` file. This action will load the pre-trained model, make predictions on the input image, and conduct an adversarial attack using the BIM method.
+**Adversarial Attacks**: The `AdversarialAttack` class provides several methods to perform adversarial attacks:
+    - **FGSM Attack**: `fgsm_attack(dynamic_epsilon, epsilon, size_step_epsilon, step_after_change_class)`
+    - **BIM Attack**: `bim_attack(dynamic_epsilon, epsilon, size_step_epsilon, step_after_change_class)`
+    - **Dispersion Reduction**: `dispersion_reduction(dynamic_alpha, alpha, size_step_alpha, attack_budget, attack_layer_idx, step_after_change_class)`
+    - **Dispersion Amplification**: `dispersion_amplification(dynamic_alpha, alpha, size_step_alpha, attack_budget, attack_layer_idx, step_after_change_class)`
 
-5. **Interpret the Results**: Upon running the code, you'll find the adversarially perturbed images saved in the `media` folder. Each image will be labeled with the epsilon value used for the attack. Additionally, the predicted class and probability for each image will be printed in the console.
 
 ## Repository Structure
 
-- **models/**: Directory containing model definitions and pre-trained weights.
-  - **mobilenet_v2.py**: Contains the definition of the MobileNetV2 model.
-  - **inception_v3.py**: Contains the definition of the InceptionV3 model.
-- **adversarial_attack.py**: Implements the AdversarialAttack class for crafting adversarial examples using the BIM and FGSM. Entry point of the application. It loads the pre-trained model, performs predictions, and conducts adversarial attacks.
+- **adversarial_attack.py**: The main script to run the adversarial attacks using different models. Implements the `AdversarialAttack` class for crafting adversarial examples using the BIM, FGSM, DR adn DR methods.
 - **imagenet_classes.txt**: Contains the class labels for the ImageNet dataset.
 - **media/**: Directory to store input images and adversarially perturbed images.
