@@ -251,8 +251,6 @@ class AdversarialAttack:
         print("Predicted class:", predicted_class)
         print("Probability:", probabilities[predicted_class_idx].item())
 
-        if self.predicted_class is None:
-            self.predicted_class = predicted_class
         return predicted_class
 
 
@@ -270,19 +268,25 @@ if __name__ == "__main__":
     wide_resnet50_2 = models.wide_resnet50_2(weights='IMAGENET1K_V1').eval()
     mnasnet = models.mnasnet1_0(weights='IMAGENET1K_V1').eval()
 
-    models = [resnet18, squeezenet, vgg19, densenet, inception, googlenet, shufflenet, mobilenet_v2,
-              mobilenet_v3_large, resnext50_32x4d, wide_resnet50_2, mnasnet]
+    models = (resnet18, squeezenet, vgg19, densenet, inception, googlenet, shufflenet, mobilenet_v2,
+              mobilenet_v3_large, resnext50_32x4d, wide_resnet50_2, mnasnet)
 
     filename = 'media/dog.jpg'
     file_classes = 'imagenet_classes.txt'
-    layer_idx = 4
-    eps = 16 / 255
+    eps = 16 / 25
     for model in models:
         print(model.__class__.__name__)
+        list_features = list(model.children())
+        if len(list_features) in [2, 3]:
+            list_features = list_features[0]
+        local_layers = [i for i in range(len(list_features))]
+        layer_idx = len(local_layers) // 2 - 1
+
         attack = AdversarialAttack(model, file_classes)
         attack.load_image(filename)
         attack.predict()
-        #attack.fgsm_attack(True, 0.01, 0.01, 0)
+        attack.fgsm_attack(True, 0.001, 0.001, 0)
         #attack.bim_attack(True, 0.01, 0.01, 0)
-        #attack.dispersion_reduction(True, 0.01, 0.01, eps, layer_idx)
-        attack.dispersion_amplification(True, 0.001, 0.001, eps, layer_idx)
+        #attack.dispersion_reduction(True, 0.004, 0.001, eps, layer_idx, 0)
+        #attack.dispersion_amplification(True, 0.004, 0.001, eps, layer_idx)
+        print()
