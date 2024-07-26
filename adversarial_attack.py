@@ -50,9 +50,12 @@ class AdversarialAttack:
         loss.backward()
         self.data_grad = image.grad.data
 
-    def fgsm_attack(self, dynamic_epsilon=True, epsilon=0.01, size_step_epsilon=0.01, step_after_change_class=0):
+    def _check_image_instance(self):
         if self.image is None:
             raise errors.ImageException('self.image was not loaded, use load_image()')
+
+    def fgsm_attack(self, dynamic_epsilon=True, epsilon=0.01, size_step_epsilon=0.01, step_after_change_class=0):
+        self._check_image_instance()
 
         image = copy.deepcopy(self.image)
         image_in_tensor = copy.deepcopy(self.image_in_tensor)
@@ -87,8 +90,7 @@ class AdversarialAttack:
         self.batch = image_batch
 
     def bim_attack(self, dynamic_epsilon=True, epsilon=0.01, size_step_epsilon=0.01, step_after_change_class=0):
-        if self.image is None:
-            raise errors.ImageException('self.image was not loaded, use load_image()')
+        self._check_image_instance()
 
         image = copy.deepcopy(self.image)
         image_in_tensor = copy.deepcopy(self.image_in_tensor)
@@ -154,8 +156,8 @@ class AdversarialAttack:
                              attack_budget=0.01,
                              attack_layer_idx=-1,
                              step_after_change_class=0):
-        if self.image is None:
-            raise errors.ImageException('self.image was not loaded, use load_image()')
+
+        self._check_image_instance()
 
         image = copy.deepcopy(self.image)
         image_in_tensor = copy.deepcopy(self.image_in_tensor)
@@ -166,6 +168,7 @@ class AdversarialAttack:
 
         self._set_list_layers()
         perturbed_image = copy.deepcopy(self.batch)
+
         max_steps = 1000
         for step in range(max_steps):
             print('step: ', step)
@@ -198,8 +201,8 @@ class AdversarialAttack:
                                  attack_budget=0.01,
                                  attack_layer_idx=-1,
                                  step_after_change_class=0):
-        if self.image is None:
-            raise errors.ImageException('self.image was not loaded, use load_image()')
+
+        self._check_image_instance()
 
         image = copy.deepcopy(self.image)
         image_in_tensor = copy.deepcopy(self.image_in_tensor)
